@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: course-website
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: course-website
+  template:
+    metadata:
+      labels:
+        app: course-website
+    spec:
+      containers:
+        - name: course-container
+          image: yourdockerhubusername/linuxandk8s-course-site:latest
+          ports:
+            - containerPort: 80
