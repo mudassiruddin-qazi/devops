@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'mudassirq692/linuxandk8s-course-site'
+        TAG = 'latest'
+        GIT_REPO = 'https://github.com/mudassiruddin-qazi/devops.git'
+        GIT_BRANCH = 'main'
+        GKE_CLUSTER = 'development-environment'
+        GKE_ZONE = 'us-central1-c'
+        GCP_PROJECT = 'lustrous-drake-412814'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: "${GIT_BRANCH}",
+                    credentialsId: 'github-credentials-id',
+                    url: "${GIT_REPO}"
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('day-1') {
+                    script {
+                        echo 'Building Docker image...'
+                        sh 'docker build -t ${IMAGE_NAME}:${TAG} .'
+                    }
+                }
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    echo 'Pushing Docker image...'
+                    sh 'docker push ${IMAGE_NAME}:${TAG}'
+                }
+            }
+        }
+
+        stage('Deploy to GKE') {
+            steps {
+                withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_KEY')]) {
+                    script {
+                        echo 'Deploying to GKE...'
+                        sh '''
+                            gcloud auth activate-service-account --key-file=$GCP_KEY
+                            gcloud config set project $GCP_PROJECT
+                            gcloud config set compute/zone $GKE_ZONE
+                            gcloud container clusters get-credentials $GKE_CLUSTER
+                            kubectl apply -f k8s/deployment.yaml
+                            kubectl apply -f k8s/service.yaml
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo 'Pipeline failed. Please check the logs above.'
+        }
+        success {
+            echo 'Pipeline executed successfully!'
+        }
+    }
+}
