@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: course-container
-          image: mudassirq6922/linuxandk8s-course-site:latest
+          image: mudassirq692/linuxandk8s-course-site:latest
           ports:
             - containerPort: 80
